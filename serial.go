@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
+	log "github.com/Sirupsen/logrus"
 	"github.com/tarm/serial"
-	"log"
 	"regexp"
 )
 
