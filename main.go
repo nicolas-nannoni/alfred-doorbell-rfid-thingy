@@ -1,30 +1,41 @@
 package main
 
 import (
+	"flag"
 	log "github.com/Sirupsen/logrus"
 	fingy "github.com/nicolas-nannoni/fingy-go-client"
-	"time"
+)
+
+var (
+	deviceId  = flag.String("deviceId", "571a8511d4c6c5edf1488853", "the Fingy deviceId")
+	serviceId = flag.String("serviceId", "alfred", "the Fingy serviceId")
+	fingyHost = flag.String("fingyHost", "localhost:8080", "the Fingy Gateway Hostname & Port")
+	debug     = flag.Bool("debug", false, "enable debug logging")
 )
 
 func main() {
 
+	flag.Parse()
+
+	setupLogging()
 	setupAndConnectToFingy()
-
-	for {
-		t := time.NewTimer(time.Second * 5)
-		<-t.C
-
-		RegisterCard(CardSwipe{id: "card-123"})
-	}
+	go SerialLoop()
 
 	select {}
+}
+
+func setupLogging() {
+	if *debug {
+		log.SetLevel(log.DebugLevel)
+	}
 }
 
 // Setup FingyClient and initiate the connection to Fingy
 func setupAndConnectToFingy() {
 
-	fingy.F.ServiceId = "alfred"
-	fingy.F.DeviceId = "abcdef1234"
+	fingy.F.ServiceId = *serviceId
+	fingy.F.DeviceId = *deviceId
+	fingy.F.FingyHost = *fingyHost
 	registerEvents()
 
 	go fingy.F.Begin()
@@ -32,10 +43,6 @@ func setupAndConnectToFingy() {
 
 // Register supported events, received from Alfred server via the Fingy connection
 func registerEvents() {
-	fingy.F.Router.Entry("/door/open", openDoor)
-}
-
-// Toggle the door GPIO pin for some time to open it
-func openDoor(c *fingy.Context) {
-	log.Info("Opening door")
+	fingy.F.Router.Entry("/open", openDoor)
+	fingy.F.Router.Entry("/close", closeDoor)
 }

@@ -1,20 +1,22 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/tarm/serial"
 	"regexp"
-)
-
-const (
-	portName = "/dev/tty.wchusbserial1420"
+	"time"
 )
 
 var (
+	portName = flag.String("serialPort", "/dev/ttyUSB0", "the Arduino Serial port")
+
 	cardRe = regexp.MustCompile(`\*CARD\*:([\d\w]*)`)
 	keyRe  = regexp.MustCompile(`\*KEY\*:(\d)`)
 	bellRe = regexp.MustCompile(`\*BELL\*`)
+
+	sendChannel = make(chan string)
 )
 
 type InputEvent interface {
@@ -29,25 +31,18 @@ type DoorBell struct {
 	InputEvent
 }
 
-func ListenSerial() {
+func SerialLoop() {
 
 	port := openPort()
 
-	log.Printf("Port %s opened", portName)
+	log.Printf("Port %s opened", *portName)
 
 	for {
-		in := listen(port)
-
-		evt, err := parseInput(in)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-
-		err = dispatchEvent(evt)
-		if err != nil {
-			log.Println(err)
-			continue
+		select {
+		case msg := <-sendChannel:
+			send(port, msg)
+		default:
+			listen(port)
 		}
 	}
 
@@ -55,7 +50,7 @@ func ListenSerial() {
 
 func openPort() (port *serial.Port) {
 
-	c := &serial.Config{Name: portName, Baud: 9600}
+	c := &serial.Config{Name: *portName, Baud: 9600, ReadTimeout: time.Second * 1}
 
 	port, err := serial.OpenPort(c)
 	if err != nil {
@@ -66,21 +61,51 @@ func openPort() (port *serial.Port) {
 }
 
 func closePort(port *serial.Port) {
-	log.Printf("Closing port %s", portName)
+	log.Infof("Closing port %s", *portName)
 	port.Close()
 }
 
-func listen(p *serial.Port) (str string) {
+func send(port *serial.Port, msg string) {
+	log.Debugf("Message to send: %s", msg)
+	port.Write([]byte(msg + "\n"))
+}
+
+func listen(p *serial.Port) {
+	in, ok := readBytes(p)
+	if !ok {
+		return
+	}
+
+	evt, err := parseInput(in)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	err = dispatchEvent(evt)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+}
+
+func readBytes(p *serial.Port) (str string, ok bool) {
 
 	in := make([]byte, 32)
 	n, err := p.Read(in)
+	if n == 0 {
+		log.Debugf("No data on serial: %v", n)
+		ok = false
+		return
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	str = string(in[:n])
-	log.Printf("Received input: %s", str)
+	log.Debugf("Received input: %s", str)
 
+	ok = true
 	return
 }
 
