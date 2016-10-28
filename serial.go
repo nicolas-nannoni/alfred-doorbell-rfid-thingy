@@ -33,6 +33,11 @@ type DoorBell struct {
 
 func SerialLoop() {
 
+	if *ignoreSerial {
+		log.Warn("--ignoreSerial flag was passed, connection to the USB serial port will not be attempted!")
+		return
+	}
+
 	port := openPort()
 
 	log.Printf("Port %s opened", *portName)

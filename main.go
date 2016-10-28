@@ -7,10 +7,11 @@ import (
 )
 
 var (
-	deviceId  = flag.String("deviceId", "571a8511d4c6c5edf1488853", "the Fingy deviceId")
-	serviceId = flag.String("serviceId", "alfred", "the Fingy serviceId")
-	fingyHost = flag.String("fingyHost", "localhost:8080", "the Fingy Gateway Hostname & Port")
-	debug     = flag.Bool("debug", false, "enable debug logging")
+	deviceId     = flag.String("deviceId", "571a8511d4c6c5edf1488853", "the Fingy deviceId")
+	serviceId    = flag.String("serviceId", "alfred", "the Fingy serviceId")
+	fingyHost    = flag.String("fingyHost", "localhost:8080", "the Fingy Gateway Hostname & Port")
+	ignoreSerial = flag.Bool("ignoreSerial", false, "do not attempt to connect to the USB serial device (for debugging/development only)")
+	debug        = flag.Bool("debug", false, "enable debug logging")
 )
 
 func main() {
@@ -19,6 +20,7 @@ func main() {
 
 	setupLogging()
 	setupAndConnectToFingy()
+
 	go SerialLoop()
 
 	select {}
